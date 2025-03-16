@@ -79,6 +79,8 @@ def apply_filter(projection, filter_type='ramp', cutoff=1.0):
     
     return np.fft.ifft(fourier * filt).real
 
+
+
 sinogram = np.load("sinogram.npy")
 theta = np.linspace(0., 180., sinogram.shape[0], endpoint=False)  # Angles from 0 to 180 degrees
 print("Number of angles:",len(theta))
@@ -94,4 +96,4 @@ plt.imshow(reconstructed_image, cmap='gray')
 plt.axis('off')
 
 plt.tight_layout()
-plt.show()
+plt.savefig("sinogram_reconstructed_by_CT_code.png")
