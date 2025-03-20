@@ -96,4 +96,4 @@ plt.imshow(reconstructed_image, cmap='gray')
 plt.axis('off')
 
 plt.tight_layout()
-plt.savefig("sinogram_reconstructed_by_CT_code.png")
+plt.savefig("../data/task5/sinogram_reconstructed_by_CT_code.png")

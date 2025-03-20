@@ -3,3 +3,4 @@
 - matplotlib
 - cv2
 - scipy
+- PyWavelets
