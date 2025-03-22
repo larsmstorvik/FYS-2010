@@ -1,17 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import cv2
-from scipy.ndimage import median_filter, generic_filter
-from PIL import Image
+from scipy.ndimage import median_filter
 
-# Plot original image
-def plot_image(image, title, path):
-    plt.figure()
-    plt.imshow(image)
-    plt.title(title)
-
-    text = "data/task2/test/org_" + path + ".png"
-    plt.savefig(text)
 
 # Function to plot histogram
 def plot_histogram(image, title, path):
@@ -22,6 +13,7 @@ def plot_histogram(image, title, path):
     plt.ylabel("Frequency")
     text = "data/task2/" + path + ".png"
     plt.savefig(text)
+    plt.close()
 
 # Function to plot homogenous region
 def plot_homogenous_hist(image, title, path, x, y, w, h):
@@ -45,7 +37,7 @@ def plot_homogenous_hist(image, title, path, x, y, w, h):
     plt.tight_layout()
     text = "data/task2/" + path + "_" + str(x) + "_" + str(y) + "_" + str(w) + "_" + str(h) + ".png"
     plt.savefig(text)
-
+    plt.close()
 
 def pad_to_next_power_of_two(image):
     # Get the dimensions of the image
@@ -60,8 +52,6 @@ def pad_to_next_power_of_two(image):
     
     return padded_image
 
-
-
 def fft2d(image):
     # Perform 2D FFT by first applying FFT to each row and then to each column
     return np.fft.fftshift(np.fft.fft2(image))
@@ -73,14 +63,7 @@ def plot_fft(fft_result, title, path, image=None,):
     # Plot the original image
     plt.figure(figsize=(12, 6))
 
-    if image == None:
-        # Only plot the fft
-        magnitude_spectrum = np.log(np.abs(fft_result) + 1)  # log scale for better visibility
-        plt.imshow(magnitude_spectrum, cmap='plasma', extent=(-fft_result.shape[1]//2, fft_result.shape[1]//2, -fft_result.shape[0]//2, fft_result.shape[0]//2))
-        plt.title(f"Frequency Spectrum: {title}")
-        plt.xlabel("Frequency (u)")
-        plt.ylabel("Frequency (v)")
-    else:
+    if image is not None and image.any():
         plt.subplot(1, 2, 1)
         plt.imshow(image, cmap='gray')
         plt.title(f"Original Image: {title}")
@@ -92,124 +75,19 @@ def plot_fft(fft_result, title, path, image=None,):
         plt.imshow(magnitude_spectrum, cmap='plasma')
         plt.title(f"Magnitude Spectrum (2D FFT): {title}")
         #plt.axis('off')
+    else:
+        # Only plot the fft
+        magnitude_spectrum = np.log(np.abs(fft_result) + 1)  # log scale for better visibility
+        plt.imshow(magnitude_spectrum, cmap='plasma', extent=(-fft_result.shape[1]//2, fft_result.shape[1]//2, -fft_result.shape[0]//2, fft_result.shape[0]//2))
+        plt.title(f"Frequency Spectrum: {title}")
+        plt.xlabel("Frequency (u)")
+        plt.ylabel("Frequency (v)")
+        
 
     plt.tight_layout()
     text = "data/task2/" + path + ".png"
     plt.savefig(text)
-
-
-def plot_homogenous_hist_and_fft(image, image_path, x, y, w, h):
-    # Plot the histogram of the original image
-    plot_homogenous_hist(image, "Noisy Liver", img_path_org, x, y, w, h)
-    
-    # Plot 2D FFT of homogeneous region
-    cropped_image = image[y:y+h, x:x+w]
-    # Pad the image to the next power of two
-    padded_image = pad_to_next_power_of_two(cropped_image)
-    cropped_fft_result = fft2d(padded_image)
-    plot_fft(cropped_fft_result,"Noisy Liver (Homogeneous Region)",  "homogenous/" + img_path_org + "_homogeneous_region"+ "_" + str(x) + "_" + str(y) + "_" + str(w) + "_" + str(h), image=padded_image)
-
-
-def plot_gaussian_filter_added(image, sigmax, sigmay):
-    # Apply Gaussian filter to the image
-    filtered_image = cv2.GaussianBlur(image, ksize=(5, 5), sigmaX=sigmax, sigmaY=sigmay)
-    
-    # Plot the original and filtered images
-    plt.figure(figsize=(12, 6))
-    
-    plt.subplot(1, 2, 1)
-    plt.imshow(image, cmap='gray')
-    plt.title("Original Image")
-    plt.axis('off')
-    
-    plt.subplot(1, 2, 2)
-    plt.imshow(filtered_image, cmap='gray')
-    plt.title(f"Image after Gaussian Filter (sigmax={sigmax}, sigmay={sigmay})")
-    plt.axis('off')
-    
-    plt.tight_layout()
-
-    text = "data/task2/gaussian_filter/gaussian_filter_" + img_path_org + "_" + str(sigmax) + "_" + str(sigmay) + ".png"
-    plt.savefig(text)
-
-def create_notch_filter(image, center, radius):
-    # Create a mask with the same dimensions as the image
-    mask = np.ones_like(image, dtype=np.float64)
-    
-    # Get the dimensions of the image
-    height, width = image.shape
-    
-    # Calculate the center of the image
-    center_x, center_y = center
-    
-    # Create a meshgrid with the coordinates of each pixel
-    x, y = np.meshgrid(np.arange(width), np.arange(height))
-    
-    # Calculate the distance of each pixel to the center
-    distance = np.sqrt((x - center_x)**2 + (y - center_y)**2)
-    
-    # Create a circular mask with the specified radius
-    mask[distance < radius] = 0
-    
-    return mask
-
-def notch_filter(image, image_path):
-    # apply padding to the image
-    padded_image = pad_to_next_power_of_two(image)
-
-    # 2D FFT
-    fft_result = fft2d(padded_image)
-    magnitude_spectrum = np.log(np.abs(fft_result) + 1)
-    # create notch filter mask
-    n_rows = padded_image.shape[0]
-    n_cols = padded_image.shape[1]
-    c_row, c_col = (n_cols // 2, n_rows // 2)
-
-    notch_mask = np.ones((n_rows, n_cols), np.uint8)
-    notch_width = 5  # Width of the horizontal strip to remove
-    
-    #notch_mask[c_row-notch_width:c_row+notch_width, :] = 0  # Set mask to 0 along the horizontal line
-    #notch_mask[c_row-notch_width:c_row+notch_width, c_col - 10:c_col + 10] = 1  # Set mask to 1 in the midle
-
-    sigma = 10
-    
-    # Generate Gaussian notch mask
-    for i in range(n_rows):
-        for j in range(n_cols):
-            # Calculate distance from the center (c_row, c_col)
-            dist = i - c_row
-            # Apply Gaussian function to create a smooth notch filter
-            notch_mask[i, j] =np.exp(-(dist**2) / (2 * sigma**2))
-
-    # Apply the notch filter mask
-    fft_result_filtered = fft_result * notch_mask
-    # Inverse 2D FFT
-    filtered_image_padded = np.abs(np.fft.ifft2(np.fft.ifftshift(fft_result_filtered)))
-    # Remove padding
-    filtered_image = filtered_image_padded[:image.shape[0], :image.shape[1]]
-
-    plt.figure(figsize=(12, 6))
-    plt.subplot(2, 2, 1)
-    plt.imshow(magnitude_spectrum, cmap='plasma')
-    plt.title("Original Image")
-    plt.axis('off')
-
-    plt.subplot(2, 2, 2)
-    plt.imshow(notch_mask, cmap='gray')
-    plt.title("Notch Filter Mask")
-    plt.axis('off')
-
-    plt.subplot(2, 2, 3)
-    plt.imshow(fft_result_filtered, cmap='plasma')
-    plt.title("Added Notch Filter")
-    plt.axis('off')
-
-    plt.subplot(2, 2, 4)
-    plt.imshow(filtered_image, cmap='gray')
-    plt.title("Filtered Image")
-    plt.axis('off')
-
-    plt.savefig("data/task2/notch_filter/notch_filter_mask.png")
+    plt.close()
 
 
 def plot_RBG_channels_unmodified(R, B, G):
@@ -226,6 +104,7 @@ def plot_RBG_channels_unmodified(R, B, G):
     ax[2].set_title("Blue Channel")
 
     plt.savefig("data/task2/RBG/rgb_channels.png")
+    plt.close()
 
 """ QUESTION 4 """
 def plot_denoised_red_chanel(image, original_spectrum, notch_mask, fft_filtered_spectrum, fft_inverse_filtered_spectrum, filtered_image, path):
@@ -244,52 +123,38 @@ def plot_denoised_red_chanel(image, original_spectrum, notch_mask, fft_filtered_
     """
     
     plt.figure(figsize=(12, 8))
-    plt.subplot(3, 3, 1)
+    plt.subplot(2, 3, 1)
     plt.imshow(original_spectrum, cmap='plasma')
     plt.title("Original spectrum")
     plt.axis('off')
 
-    plt.subplot(3, 3, 2)
+    plt.subplot(2, 3, 2)
     plt.imshow(notch_mask, cmap='gray')
     plt.title("Notch Filter Mask")
     plt.axis('off')
 
-    plt.subplot(3, 3, 3)
+    plt.subplot(2, 3, 3)
     plt.imshow(np.log(np.abs(fft_filtered_spectrum) + 1), cmap='plasma')
     plt.title("Added Notch Filter")
     plt.axis('off')
 
-    plt.subplot(3, 3, 4)
+    plt.subplot(2, 3, 4)
     plt.imshow(image, cmap='Reds')
     plt.title("Original Image")
     plt.axis('off')
 
-    plt.subplot(3, 3, 5)
+    plt.subplot(2, 3, 5)
     plt.imshow(fft_inverse_filtered_spectrum, cmap='Reds')
     plt.title("Notch Filter Mask rejects this")
     plt.axis('off')
 
-    plt.subplot(3, 3, 6)
+    plt.subplot(2, 3, 6)
     plt.imshow(filtered_image, cmap='Reds')
     plt.title("Filtered Image")
     plt.axis('off')
 
-    plt.subplot(3, 3, 7)
-    plt.hist(image.ravel(), bins=256, density=False, histtype='step', color='black')
-    plt.title("Histogram of Original Image")
-    plt.xlabel("Pixel Intensity")
-
-    plt.subplot(3, 3, 8)
-    plt.hist(fft_inverse_filtered_spectrum.ravel(), bins=256, density=False, histtype='step', color='black')
-    plt.title("Histogram of Filtered Image")
-    plt.xlabel("Pixel Intensity")
-
-    plt.subplot(3, 3, 9)
-    plt.hist(filtered_image.ravel(), bins=256, density=False, histtype='step', color='black')
-    plt.title("Histogram of Filtered Image")
-    plt.xlabel("Pixel Intensity")
-
     plt.savefig("data/task2/RBG/R/"+path+".png")
+    plt.close()
 
 def denoice_red_channel(image):
     """
@@ -326,6 +191,7 @@ def denoice_red_channel(image):
     notch_mask_inverse = np.zeros((n_rows, n_cols), np.uint8)
 
     sigma = 0.3
+
     # Generate Gaussian notch mask horizontally
     for i in range(n_rows):
         for j in range(n_cols):
@@ -334,7 +200,7 @@ def denoice_red_channel(image):
             # Apply Gaussian function to create a smooth notch filter
             notch_mask[i, j] = 1 - np.exp(-(dist**2) / (2 * sigma**2))
             notch_mask_inverse[i, j] = 1 - np.exp(-(dist**2) / (2 * sigma**2))
-
+            
     # Inverse the notch mask to get the inverse filter
     notch_mask_inverse = (1 - notch_mask_inverse)
 
@@ -377,98 +243,8 @@ def gaussian_low_pass_filter(shape, cutoff):
     H = np.exp(-(D**2) / (2 * (cutoff**2)))
     return H
 
-def plot_denoised_green_chanel(image, original_spectrum, low_pass_filter, frequency_domain_added_filter, spatial_domain_added_inverse, filtered_image, path):
+def plot_denoised_green_chanel(image, filtered_image, path):
     # Show image and the hist
-
-    plt.figure(figsize=(12, 8))
-
-    plt.subplot(3, 3, 1)
-    plt.imshow(original_spectrum, cmap='plasma')
-    plt.title("Original spectrum")
-    plt.axis('off')
-
-    plt.subplot(3, 3, 2)
-    plt.imshow(low_pass_filter, cmap='gray')
-    plt.title("Gaussian Low Pass Filter")
-    plt.axis('off')
-
-    plt.subplot(3, 3, 3)
-    plt.imshow(np.log(np.abs(frequency_domain_added_filter) + 1), cmap='plasma')
-    plt.title("Added Gaussian Low Pass Filter")
-    plt.axis('off')
-
-    plt.subplot(3, 3, 4)
-    plt.imshow(image, cmap='Greens')
-    plt.title("Original Image")
-    plt.axis('off')
-
-    plt.subplot(3, 3, 5)
-    plt.imshow(spatial_domain_added_inverse, cmap='Greens')
-    plt.title("Gaussian Low Pass Filter rejects this")
-    plt.axis('off')
-
-    plt.subplot(3, 3, 6)
-    plt.imshow(filtered_image, cmap='Greens')
-    plt.title("Filtered Image")
-    plt.axis('off')
-
-    plt.subplot(3, 3, 7)
-    plt.hist(image.ravel(), bins=256, density=False, histtype='step', color='black')
-    plt.title("Histogram of Original Image")
-    plt.xlabel("Pixel Intensity")
-
-    plt.subplot(3, 3, 8)
-    plt.hist(spatial_domain_added_inverse.ravel(), bins=256, density=False, histtype='step', color='black')
-    plt.title("Histogram of Filtered Image")
-    plt.xlabel("Pixel Intensity")
-
-    plt.subplot(3, 3, 9)
-    plt.hist(filtered_image.ravel(), bins=256, density=False, histtype='step', color='black')
-    plt.title("Histogram of Filtered Image")
-    plt.xlabel("Pixel Intensity")
-
-
-    plt.savefig("data/task2/RBG/G/"+path+".png")
-
-
-def denoise_green_channel(image):
-    
-    # from https://medium.com/@abhishekjainindore24/gaussian-noise-in-machine-learning-aab693a10170
-    # denoised_img = cv2.fastNlMeansDenoising(image, None, h=10, templateWindowSize=7, searchWindowSize=21)
-
-    # # Apply padding
-    # padded_image = pad_to_next_power_of_two(image)
-    # # Perform 2D FFT
-    # fft_result = fft2d(padded_image)
-    # magnitude_spectrum = np.log(np.abs(fft_result) + 1)
-
-    # cutoff = 10
-    # # Create gaussian low pass filter
-    # low_pass_filter = gaussian_low_pass_filter(fft_result.shape, cutoff)
-    # high_pass_filter = 1 - low_pass_filter
-
-    # # Apply the notch filter mask (and inverse mask)
-    # fft_result_filtered = fft_result * low_pass_filter
-    # fft_result_filtered_inverse = fft_result * high_pass_filter
-    # # Inverse 2D FFT
-    # filtered_image_padded = np.abs(np.fft.ifft2(np.fft.ifftshift(fft_result_filtered)))
-    # filtered_image_padded_inverse = np.abs(np.fft.ifft2(np.fft.ifftshift(fft_result_filtered_inverse)))
-    # # Remove padding
-    # filtered_image = filtered_image_padded[:image.shape[0], :image.shape[1]]
-    # filtered_image_inverse = filtered_image_padded_inverse[:image.shape[0], :image.shape[1]]
-
-    # # Transform filtered image to uint8 (this is necessary to combine the channels together at a later stage)
-    # filtered_image = np.clip(filtered_image, 0, 255).astype(np.uint8)
-
-    # # Show image and the hist
-    # plot_denoised_green_chanel(image, magnitude_spectrum, low_pass_filter, fft_result_filtered, filtered_image_inverse, filtered_image, "denoised_gaussian_low_pass_filter")
-
-
-    # Apply arithmetic mean filter:
-    kernel_size = (5, 5)
-    sigma = 0
-    filtered_image = cv2.GaussianBlur(image, kernel_size, sigma)
- 
     plt.figure(figsize=(12,8))
 
     plt.subplot(3, 2, 1)
@@ -508,8 +284,18 @@ def denoise_green_channel(image):
     plt.xlabel("Pixel Intensity")
     plt.ylabel("Frequency")
 
-    plt.savefig("data/task2/RBG/G/"+"denoised_arithmetic_mean"+".png")
+    plt.savefig("data/task2/RBG/G/"+path+".png")
+    plt.close()
 
+
+def denoise_green_channel(image):
+
+    kernel_size = (3, 3)
+    # when sigma is 0, GaussianBlur wil automatically select an appropriate sigma
+    sigma = 0
+    filtered_image = cv2.GaussianBlur(image, kernel_size, sigma)
+ 
+    plot_denoised_green_chanel(image, filtered_image, "denoised_arithmetic_mean")
     return filtered_image
 
 
@@ -539,6 +325,7 @@ def plot_denoised_blue_chanel(image, denoised_img, path):
 
     plt.tight_layout()
     plt.savefig("data/task2/RBG/B/"+path+".png")
+    plt.close()
 
 def denoise_blue_channel(image):
     """
@@ -547,42 +334,11 @@ def denoise_blue_channel(image):
 
     # Apply median filter to the image
     denoised_image_3 = median_filter(image, size=3)
-    denoised_image_5 = median_filter(image, size=5)
-    denoised_image_7 = median_filter(image, size=7)
     
-    #plot_denoised_blue_chanel(image, denoised_image_3, "denoised_blue_channel_size_3")
+    plot_denoised_blue_chanel(image, denoised_image_3, "denoised_blue_channel_size_3")
 
     return denoised_image_3
 
-    
-
-    # Plot denoised to size 3, 5, and 7
-    """    
-    plt.figure(figsize=(12, 6))
-    
-    plt.subplot(2, 2, 1)
-    plt.imshow(image, cmap='Blues')
-    plt.title("Original Image")
-    plt.axis('off')
-    
-    plt.subplot(2, 2, 2)
-    plt.imshow(denoised_image_3, cmap='Blues')
-    plt.title("Denoised Image size = 3")
-    plt.axis('off')
-
-    plt.subplot(2, 2, 3)
-    plt.imshow(denoised_image_5, cmap='Blues')
-    plt.title("Denoised Image size = 5")
-    plt.axis('off')
-
-    plt.subplot(2, 2, 4)
-    plt.imshow(denoised_image_7, cmap='Blues')
-    plt.title("Denoised Image size = 7")
-    plt.axis('off')
-    
-    plt.tight_layout()
-    plt.savefig("data/task2/RBG/B/denoised_blue_channel.png")
-    """
 
 
 def plot_combined_denoised_image(image_denoised):
@@ -592,6 +348,7 @@ def plot_combined_denoised_image(image_denoised):
     plt.title("Combined Denoised Image")    
     plt.axis('off')
     plt.savefig("data/task2/RBG/combined_denoised_image.png")
+    plt.close()
 
 def combine_channels(R, G, B):
     # Combine the denoised channels
@@ -601,47 +358,69 @@ def combine_channels(R, G, B):
     image_denoised = cv2.cvtColor(image_denoised, cv2.COLOR_BGR2GRAY)
 
     # plot the combined image
-    #plot_combined_denoised_image(image_denoised)
+    plot_combined_denoised_image(image_denoised)
 
     return image_denoised
 
+
+def high_boost_filter(image, sigma=2, weight=1.0):
+    """
+    Apply a high-boost filter to an image.
+    Parameters:
+        image (numpy.ndarray): Input image to be filtered.
+        sigma (float, optional): Standard deviation for Gaussian kernel. Default is 2.
+        weight (float, optional): Weight for the high-boost filter. Default is 1.0.
+    Returns:
+        numpy.ndarray: The filtered image with the same dimensions as the input image.
+    """
+
+    f_LP = cv2.GaussianBlur(image, (0, 0), sigmaX=sigma)
+    g = cv2.addWeighted(image, 1 + weight, f_LP, -weight, 0)
+    return np.clip(g, 0, 255).astype(np.uint8)
 
 
 """ QUESTION 5 """
 def spacial_domain_enhancement(image):
     """
-    Using the laplacian filter to enhance the filter in spatial domain
+    Enhances the given image using a high-boost filter and plots the original and filtered images.
+    Parameters:
+        image (ndarray): The input image to be enhanced.
+        Returns:
+    None
     """
-    # Spatial Domain Enhancement - Laplacian Filter
-    laplacian = cv2.Laplacian(image, cv2.CV_64F, ksize=15)
+    
 
-    # Plot the original and filtered images
-    plt.figure(figsize=(12, 6))
+    g = high_boost_filter(image)
+
+
+    # Plot the original and filtered image
+    
+    plt.figure(figsize=(10, 6))
+    
     plt.subplot(1, 2, 1)
     plt.imshow(image, cmap='gray')
-    plt.title("Original Image")
-    plt.axis('off')
+    plt.title("Original image")
 
     plt.subplot(1, 2, 2)
-    plt.imshow(laplacian, cmap='gray')
-    plt.title("Laplacian Filtered Image")
-    plt.axis('off')
-
-
-    plt.savefig("data/task2/enhanced_image/spacial_domain_enhancement.png")
-
+    plt.imshow(g, cmap='gray')
+    plt.title("Filtered image")
+    plt.savefig("data/task2/enhanced_image/spacial_domain_enhancement_final.png")
+    plt.close()
 
 
 def fourier_domain_enhancement(image):
     """
-    Using a high pass filter to enhance the image in the fourier domain
+    Enhance an image using Fourier domain techniques.
+    This function applies a high-pass filter in the Fourier domain to enhance the high-frequency components of the input image. 
+    The enhanced image is then combined with the original image to produce the final enhanced image.
+    Parameters:
+        image (numpy.ndarray): The input grayscale image to be enhanced.
+    Returns:
+        None
     """
+    
     f = np.fft.fft2(image)
     fshift = np.fft.fftshift(f)
-
-    rows, cols = image.shape
-    crow, ccol = rows // 2, cols // 2
-    mask = np.ones((rows, cols), np.uint8)
 
     cutoff = 5
     low_pass_filter = gaussian_low_pass_filter(image.shape, cutoff)
@@ -650,12 +429,23 @@ def fourier_domain_enhancement(image):
 
     enhanced_spectrum = fshift * high_pass_filter
     enhanced_image_high_pass = np.abs(np.fft.ifft2(np.fft.ifftshift(enhanced_spectrum)))
+
+    weight = 0.5
+    enhanced_image_final = image + weight * enhanced_image_high_pass
+    enhanced_image_final = np.clip(enhanced_image_final, 0, 255)
+
     plt.figure(figsize=(12, 6))
     plt.subplot(2, 2, 1), plt.imshow(np.log(1 + np.abs(high_pass_filter)), cmap='gray'), plt.title("Fourier Spectrum")
     plt.subplot(2, 2, 2), plt.imshow(image, cmap='gray'), plt.title("Original Image")
     plt.subplot(2, 2, 3), plt.imshow(np.log(1 + np.abs(enhanced_spectrum)), cmap='gray'), plt.title("High-Pass Filtered")
-    plt.subplot(2, 2, 4), plt.imshow(enhanced_image_high_pass, cmap='gray'), plt.title("Gaussian Low-Pass Filtered")
+    plt.subplot(2, 2, 4), plt.imshow(enhanced_image_high_pass, cmap='gray'), plt.title("Gaussian High-Pass Filtered")
     plt.savefig("data/task2/enhanced_image/fourier_domain_enhancement.png")
+    plt.close()
+    plt.figure(figsize=(10, 6))
+    plt.imshow(enhanced_image_final, cmap='gray')
+    plt.title(f"original image + enganceh image. weight = {weight}")
+    plt.savefig("data/task2/enhanced_image/fourier_domain_enhancement_final.png")
+    plt.close()
 
 
 def enhance_image(image):
@@ -675,38 +465,38 @@ def rbg_test(image_path):
     
 
     """ Plot all channels unmodified"""
-    # plot_RBG_channels_unmodified(R, B, G)
+    plot_RBG_channels_unmodified(R, B, G)
     
 
     for channel, name, identifier in zip([R, G, B], ["Red Channel", "Green Channel", "Blue Channel"],  ["R", "G", "B"]):
         """ Plot histograms of chanels """
-        # plot_histogram(channel, f"Histogram of {name}", f"RBG/{identifier}/histogram")
+        plot_histogram(channel, f"Histogram of {name}", f"RBG/{identifier}/histogram")
         
         """ Plot 2D FFT of chanels """
-        # # Perform 2D FFT
-        # padded_image = pad_to_next_power_of_two(channel)
-        # fft_result = fft2d(padded_image)
-        # # Plot 2D FFT
-        # plot_fft(fft_result, f"2D FFT of {name}", f"RBG/{identifier}/fft")
+        # Perform 2D FFT
+        padded_image = pad_to_next_power_of_two(channel)
+        fft_result = fft2d(padded_image)
+        # Plot 2D FFT
+        plot_fft(fft_result, f"2D FFT of {name}", f"RBG/{identifier}/fft")
     
         """ Plot homogenous histogram and fft """
-        # x, y, w, h = 0, 0, 64, 64
-        # plot_homogenous_hist(channel, f"Homogenous histogram of {name}", f"RBG/{identifier}/histogram_homogenous", x, y, w, h)
-        # # Plot 2D FFT of homogeneous region
-        # cropped_image = channel[y:y+h, x:x+w]
-        # # Pad the image to the next power of two
-        # padded_cropped_image = pad_to_next_power_of_two(cropped_image)
-        # cropped_fft_result = fft2d(padded_cropped_image)
-        # plot_fft(cropped_fft_result,f"cropped 2D FFT of {name}",  f"RBG/{identifier}/fft_cropped_{x}_{y}_{w}_{h}", image=padded_cropped_image)
+        x, y, w, h = 0, 0, 64, 64
+        plot_homogenous_hist(channel, f"Homogenous histogram of {name}", f"RBG/{identifier}/histogram_homogenous", x, y, w, h)
+        # Plot 2D FFT of homogeneous region
+        cropped_image = channel[y:y+h, x:x+w]
+        # Pad the image to the next power of two
+        padded_cropped_image = pad_to_next_power_of_two(cropped_image)
+        cropped_fft_result = fft2d(padded_cropped_image)
+        plot_fft(cropped_fft_result,f"cropped 2D FFT of {name}",  f"RBG/{identifier}/fft_cropped_{x}_{y}_{w}_{h}", image=padded_cropped_image)
 
-        # x, y, w, h = 50, 105, 100, 105
-        # plot_homogenous_hist(channel, f"Homogenous histogram of {name}", f"RBG/{identifier}/histogram_homogenous", x, y, w, h)
-        # # Plot 2D FFT of homogeneous region
-        # cropped_image = channel[y:y+h, x:x+w]
-        # # Pad the image to the next power of two
-        # padded_cropped_image = pad_to_next_power_of_two(cropped_image)
-        # cropped_fft_result = fft2d(padded_cropped_image)
-        # plot_fft(cropped_fft_result,f"cropped 2D FFT of {name}",  f"RBG/{identifier}/fft_cropped_{x}_{y}_{w}_{h}", image=padded_cropped_image)
+        x, y, w, h = 50, 105, 100, 105
+        plot_homogenous_hist(channel, f"Homogenous histogram of {name}", f"RBG/{identifier}/histogram_homogenous", x, y, w, h)
+        # Plot 2D FFT of homogeneous region
+        cropped_image = channel[y:y+h, x:x+w]
+        # Pad the image to the next power of two
+        padded_cropped_image = pad_to_next_power_of_two(cropped_image)
+        cropped_fft_result = fft2d(padded_cropped_image)
+        plot_fft(cropped_fft_result,f"cropped 2D FFT of {name}",  f"RBG/{identifier}/fft_cropped_{x}_{y}_{w}_{h}", image=padded_cropped_image)
 
     """ Denoice channels """
     R_denoised = denoice_red_channel(R)
@@ -716,6 +506,7 @@ def rbg_test(image_path):
     """ Combine channels """
     combined_image = combine_channels(R_denoised, G_denoised, B_denoised)
 
+    """ Enhance image """
     enhance_image(combined_image)
 
 
@@ -723,50 +514,5 @@ def rbg_test(image_path):
 
 if __name__ == "__main__":
     image_path = "pre_data/LiverNoisy.png"
-    # Load the image
-    image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
-    img_path_org = image_path.split("/")[1].split(".")[0]
 
-    """ RBG test"""
     rbg_test(image_path)
-
-
-    """ Original image"""
-    # Plot the original image
-    #plot_image(image, f"Original Noisy Liver", img_path_org)
-    
-    """ Histogram """
-    # Plot the histogram of the original image
-    #plot_histogram(image, "Histogram of Noisy Liver", "hist/hist_" + img_path_org)
-
-    """ 2D FFT """
-    # pad the image to the next power of two
-    #padded_image = pad_to_next_power_of_two(image)
-    # Perform 2D FFT
-    #fft_result = fft2d(padded_image)
-    # Plot 2D FFT
-    #plot_fft(padded_image, fft_result, "Noisy Liver", img_path_org + "_padded")
-
-
-    """ Homogenous region plot histogram and fft """
-
-    x, y, w, h = 0, 0, 55, 55
-    #plot_homogenous_hist_and_fft(image, img_path_org, x, y, w, h)
-
-    #plot_homogenous_hist(image, "Noisy Liver", img_path_org, x, y, w, h)
-
-    # Plot 2D FFT of homogeneous region
-    #cropped_image = image[y:y+h, x:x+w]
-    #cropped_fft_result = fft2d(cropped_image)
-    #plot_fft(cropped_image, cropped_fft_result,"Noisy Liver (Homogeneous Region)",  "homogenous/" + img_path_org + "_homogeneous_region"+ "_" + str(x) + "_" + str(y) + "_" + str(w) + "_" + str(h))
-
-
-    """ Gaussian filter """
-    # Plot the original and filtered images
-    #plot_gaussian_filter_added(image, sigmax=0, sigmay=0)
-    #plot_gaussian_filter_added(image, sigmax=0.5,sigmay= 0.5)
-    #plot_gaussian_filter_added(image, sigmax=1.0,sigmay= 1.0)
-    #plot_gaussian_filter_added(image, sigmax=2.0,sigmay= 2.0)
-
-    """ Notch filter """
-    #notch_filter(image, img_path_org)

@@ -14,7 +14,7 @@ def question1():
     plt.savefig("data/task5/sinogram.png")
 
 
-def inverse_radon(sinogram, theta, image_size=None, filter_type='ramp', cutoff=1.0, interpolation_type='linear', normalization_factor=1.0):
+def inverse_radon(sinogram, theta, image_size=None, filter_type='ramp', cutoff=1.0, interpolation_type='linear'):
     """
     Inverse Radon Transform for non-square sinograms.
     
@@ -67,7 +67,7 @@ def inverse_radon(sinogram, theta, image_size=None, filter_type='ramp', cutoff=1
         recon += interp_fn(detector_idx)
 
     # Normalization
-    return recon * np.pi / (2 * num_angles) * normalization_factor
+    return recon * np.pi / (2 * num_angles)
 
 # Helper function from previous implementation
 def apply_filter(projection, filter_type='ramp', cutoff=1.0):
@@ -75,11 +75,20 @@ def apply_filter(projection, filter_type='ramp', cutoff=1.0):
     fourier = np.fft.fft(projection)
     freq = np.fft.fftfreq(n)
     
+    # Normalize frequencies to [0, 1]
+    freq_norm = np.abs(freq) / cutoff
+    filt = np.ones_like(freq)
+
     if filter_type == 'ramp':
         filt = np.abs(freq)
     elif filter_type == 'hann':
         filt = np.abs(freq) * (0.5 + 0.5 * np.cos(np.pi * freq / cutoff))
-    elif filter_type == None:
+    elif filter_type == 'cosine':
+        filt = np.abs(freq) * np.cos(np.pi * freq_norm / 2)
+    elif filter_type == 'shepp-logan':
+        # Avoid division by zero at freq=0
+        filt = np.abs(freq) * np.sinc(freq / cutoff)
+    elif filter_type is None:
         filt = np.ones(len(freq))
     else:
         raise ValueError(f"Unknown filter: {filter_type}")
@@ -130,12 +139,12 @@ def question3():
     # Plotting the reconstructed image
     plt.figure(figsize=(12, 4))
     # Reconstructed image
-    plt.title("Reconstructed Image")
+    plt.title("Reconstructed fast Image")
     plt.imshow(reconstructed_image, cmap='gray')
     plt.axis('off')
     
     plt.tight_layout()
-    plt.savefig("data/task5/sinogram_fast_reconstructed_me.png")
+    plt.savefig("data/task5/sinogram_fast.png")
 
 def experiment_cutoff(sinogram, theta):
 
@@ -200,33 +209,22 @@ def experiment_interpolation_type(sinogram, theta):
     plt.tight_layout()
     plt.savefig("data/task5/experiments/interpol_type_linear_cubic_nesrest_hann.png")
 
-def experiment_normalization_factor(sinogram, theta):
-    reconstructed_image_08 = inverse_radon(sinogram, theta, filter_type="ramp", normalization_factor=0.5)
-    reconstructed_image_10 = inverse_radon(sinogram, theta, filter_type="ramp", normalization_factor=1.0)
-    reconstructed_image_12 = inverse_radon(sinogram, theta, filter_type="ramp", normalization_factor=1.5)
 
 
-    plt.figure(figsize=(16, 10))
+def experiment_filters(sinogram, theta):
 
-    # Reconstructed image using ramp filter
-    plt.subplot(2, 2, 1)
-    plt.title("Reconstructed Image: normalization factor = 0.8")
-    plt.imshow(reconstructed_image_08, cmap='gray')
-    plt.axis('off')
+    filters = [None, 'ramp', 'hann', 'cosine', 'shepp-logan']
 
-    # Reconstructed image using ramp filter
-    plt.subplot(2, 2, 2)
-    plt.title("Reconstructed Image: normalization factor = 1.0")
-    plt.imshow(reconstructed_image_10, cmap='gray')
-    plt.axis('off')
+    plt.figure(figsize=(12, 8))
+    for i, filter in enumerate(filters):
+        reconstructed_image = inverse_radon(sinogram, theta, filter_type=filter)
 
-    plt.subplot(2, 2, 3)
-    plt.title("Reconstructed Image: normalization factor = 1.2")
-    plt.imshow(reconstructed_image_12, cmap='gray')
-    plt.axis('off')
-
+        plt.subplot(2, 3, i+1)
+        plt.imshow(reconstructed_image, cmap='gray')
+        plt.title(f"filter: {filter}")
+    
     plt.tight_layout()
-    plt.savefig("data/task5/experiments/normalization_factors_08_10_12_ramp.png")
+    plt.savefig("data/task5/experiments/filters")
 
 
 def question3_experiment():
@@ -244,14 +242,24 @@ def question3_experiment():
     theta = np.linspace(0., 180., sinogram_fast.shape[0], endpoint=False)  # Angles from 0 to 180 degrees
     print("Number of angles:",len(theta))
 
+    # Experiments with different filters:
+    experiment_filters(sinogram_fast, theta)
+
     # Experiment with cutoff sizes
-    #experiment_cutoff(sinogram_fast, theta)
+    experiment_cutoff(sinogram_fast, theta)
 
     # Experiment with interpolation types
-    #experiment_interpolation_type(sinogram_fast, theta)
+    experiment_interpolation_type(sinogram_fast, theta)
 
-    # Experiment with normalization factors
-    experiment_normalization_factor(sinogram_fast, theta)
+    # Combine best parameters
+    reconstructed_image = inverse_radon(sinogram_fast, theta, filter_type='hann', cutoff=1.0, interpolation_type='cubic')
+
+    plt.figure(figsize=(10, 6))
+    plt.imshow(reconstructed_image, cmap='gray')
+    plt.title("Reconstructed image with best parameters")
+    plt.savefig("data/task5/experiments/best_pic.png")
+
+
 if __name__ == '__main__':
     question1()
     question2()

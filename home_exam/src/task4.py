@@ -1,4 +1,3 @@
-import cv2
 import pywt
 from skimage import io, color
 import matplotlib.pyplot as plt
@@ -12,7 +11,7 @@ def question1():
     # Check if the image has an alpha channel and remove it
     if image.shape[-1] == 4:  # RGBA image
         image = image[:, :, :3]  # Keep only the RGB channels
-    gray_image = color.rgb2gray(image)  # Convert to grayscale if needed
+    gray_image = color.rgb2gray(image)  # Convert to grayscale
     # Perform 3-level DWT decomposition
     coeffs = pywt.wavedec2(gray_image, wavelet='haar', level=3)
     cA3, (cH3, cV3, cD3), (cH2, cV2, cD2), (cH1, cV1, cD1) = coeffs
@@ -55,54 +54,59 @@ def question2():
 
     # Compute maximum decomposition levels
     max_levels = np.log2(min(M, N))
-    max_levels = int(max_levels)
+    #max_levels = int(max_levels)
     print(f"Maximum decomposition levels: {max_levels}")
 
 def question3():
-    # Load grayscale image
+    # Load image
     image = io.imread("pre_data/IMG_MRA1.png", as_gray=True)
 
     # Perform 3-level, 5-level, and 8-level DWT
     levels = [3, 5, 8]
-    coeffs_dict = {}
 
+    # Select a detail coefficient
+    chosen_coeff = np.random.choice(['cH', 'cV', 'cD'])  # Randomly select
+    
     for level in levels:
-        coeffs = pywt.wavedec2(image, 'haar', level=level)
-        coeffs_dict[level] = coeffs  # Store original coefficients
-
-        # Select a detail coefficient (e.g., horizontal cH)
+        # Perform discrete wavelet decomposition
+        coeffs = pywt.wavedec2(image.copy(), 'haar', level=level)
         cA, detail_coeffs = coeffs[0], coeffs[1:]  # Approximate and detailed
-        chosen_coeff = np.random.choice(['cH', 'cV', 'cD'])  # Randomly select
-        print(f"Modifying {chosen_coeff} at level {level}")
+        
+        print(f"Modifying {chosen_coeff} at lowest level (level {level})")
 
-        # Modify one value in the selected coefficient
-        for i in range(len(detail_coeffs)):
-            cH, cV, cD = detail_coeffs[i]
-            print(f"Before Modification Level {i+1}: cH={cH.shape}, cV={cV.shape}, cD={cD.shape}")
-            if chosen_coeff == 'cH':
-                cH[0, 0] = 0  # Modify one value
-            elif chosen_coeff == 'cV':
-                cV[0, 0] = 0
-            elif chosen_coeff == 'cD':
-                cD[0, 0] = 0
-            print(f"After Modification Level {i+1}: cH={cH.shape}, cV={cV.shape}, cD={cD.shape}")
-            detail_coeffs[i] = (cH.copy(), cV.copy(), cD.copy())  # Ensure reassigning as tuple
-            print(f"Final Check Level {i+1}: cH={cH.shape}, cV={cV.shape}, cD={cD.shape}")
-            print("ca shape",cA.shape)
+        # Choose coefficients of the lovest level (level 3, 5, and 8 respectfyully)
+        cH, cV, cD = detail_coeffs[0]
 
-        cA = cA.copy()
-        coeffs_modified = (cA, detail_coeffs)
-        print(len(coeffs_modified))
+        # Modify all values of the one coefficient and set all values to zero
+        if chosen_coeff == 'cH':
+            cH = cH * 0  
+        elif chosen_coeff == 'cV':
+            cV = cV * 0
+        elif chosen_coeff == 'cD':
+            cD = cD * 0
+        detail_coeffs[0] = (cH, cV, cD)  # Ensure reassigning as tuple
+
+        coeffs_modified = [cA] + detail_coeffs
+
         # Reconstruct the image
-        reconstructed = pywt.waverec2((cA, detail_coeffs), 'haar')
+        reconstructed = pywt.waverec2(coeffs_modified, 'haar')
 
         # Plot the reconstructed image
         plt.figure(figsize=(5, 5))
         plt.imshow(reconstructed, cmap='gray')
-        plt.title(f'Reconstructed Image - Level {level}')
+        plt.title(f'Reconstructed Image - Level {level}. Chosen coeff: {chosen_coeff}')
         plt.axis('off')
-        plt.savefig(f"reconstructed_image_level_{level}.png")
-
+        img_path = f"data/task4/reconstructed_image_level_{level}.png"
+        plt.savefig(img_path)
+        plt.close()
+    # Plot original image
+    plt.figure(figsize=(5, 5))
+    plt.imshow(image, cmap='gray')
+    plt.title(f'Original image')
+    plt.axis('off')
+    img_path = "data/task4/original_image_Q3.png"
+    plt.savefig(img_path)
+    plt.close()
 
 if __name__ == "__main__":
     #question1()

@@ -171,9 +171,9 @@ if __name__ == "__main__":
         plot_homogenous_region(img, img_path_org, img_path_org, x=45, y=150, w=35, h=30)
 
         """ FOURIER TRANSFORM ANALYSIS"""
-        # # Pad the image to the next power of two
-        # padded_image = pad_to_next_power_of_two(img)
-        # # Apply the 2D FFT to the padded image
-        # padded_fft_result = fft2d(padded_image)
-        # # Plot the results
-        # plot_fft(img, padded_fft_result, f"padded {img_path_org}", f"{img_path_org}_padded")
+        # Pad the image to the next power of two
+        padded_image = pad_to_next_power_of_two(img)
+        # Apply the 2D FFT to the padded image
+        padded_fft_result = fft2d(padded_image)
+        # Plot the results
+        plot_fft(img, padded_fft_result, f"padded {img_path_org}", f"{img_path_org}_padded")

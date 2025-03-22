@@ -24,9 +24,6 @@ if __name__ == "__main__":
     # Rezise robot.jpg to the same size as pig.jpg
     robot_resized = cv2.resize(robot_gray, (pig_gray.shape[1], pig_gray.shape[0]))
 
-    #plot_image(robot_resized, "Resized Robot", "resized_robot")
-    #plot_image(pig_gray, "Pig", "pig")
-
     # Compute the Fourier Transform of both images
     F_robot = np.fft.fft2(robot_resized)
     F_pig = np.fft.fft2(pig_gray)
